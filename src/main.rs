@@ -40,7 +40,7 @@ async fn main(){
 
     let option_limit: Option<u64> = args.opt_value_from_str(["-l", "--limit"]).unwrap_or(Some(25));
 
-    let target: String = args.free_from_str().expect("无效参数");
+    let target: String = args.free_from_str().expect("error: 无效参数");
     let remaining: Vec<OsString> = args.finish();
     if !remaining.is_empty() {
         eprintln!("warning: 存在未识别的额外参数: {:?}", remaining);
@@ -50,8 +50,17 @@ async fn main(){
     if let Some(res) = option_limit {
          limit=res;
     }
-
-    let list=get_go_pkg_list(limit,&target).await.expect("获取错误");
+    let output = std::process::Command::new("go")
+        .arg("env")
+        .arg("GOMOD")
+        .output()
+        .expect("执行 go env 失败\n");
+    let go_mod_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if go_mod_path == "/dev/null" || go_mod_path == "NUL" || go_mod_path.is_empty() {
+        println!("error: go.mod file not found");
+        return;
+    }
+    let list=get_go_pkg_list(limit,&target).await.expect("error: 包获取失败");
     if list.is_empty() {
         return;
     }
@@ -71,7 +80,7 @@ async fn main(){
             choices
         },
         Err(InquireError::OperationCanceled) => {
-            println!(" 操作已取消.");
+            println!("操作已取消.");
             std::process::exit(0);
         }
         Err(InquireError::OperationInterrupted) => {
