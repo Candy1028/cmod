@@ -38,7 +38,7 @@ impl fmt::Display for GoPkg {
 async fn main(){
     let mut args = Arguments::from_env();
 
-    let option_limit: Option<u64> = args.opt_value_from_str(["-l", "--limit"]).unwrap_or(Some(25));
+    let option_limit: Option<u64> = args.opt_value_from_str("-l").unwrap_or(Some(25));
 
     let target: String = args.free_from_str().expect("error: 无效参数");
     let remaining: Vec<OsString> = args.finish();
