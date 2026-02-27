@@ -21,19 +21,15 @@ impl fmt::Display for GoPkg {
         if let Some(ver) = &self.version {
             write!(f, " {}", ver)?;
         }
-
-        if let Some(imp) = self.imported {
-            write!(f, " ({})", imp)?;
-        }
-
         if let Some(pub_date) = &self.published_on {
-            write!(f, " {}", pub_date)?;
+            write!(f, "  {}", pub_date)?;
         }
-
+        if let Some(imp) = self.imported {
+            write!(f, "  (+{})", imp)?;
+        }
         if let Some(desc) = &self.description {
-            write!(f, "\n    {}", desc)?;
+            write!(f, "\n      {}", desc)?;
         }
-
         Ok(())
     }
 }
@@ -57,27 +53,29 @@ async fn main(){
 
     let list=get_go_pkg_list(limit,&target).await.expect("获取错误");
     if list.is_empty() {
-        println!("没有找到相关的包.");
         return;
     }
     let selected_packages = MultiSelect::new(
-        "请选择你需要安装的 (按空格键勾选, 按回车键确认):",
+        "==> 可安装的包 :\n",
         list,
-    ).with_formatter(&|_: &[ListOption<&GoPkg>]| {
-        String::new()
+    ).with_formatter(&|options: &[ListOption<&GoPkg>]| {
+        let mut res:Vec<String> =Vec::new();
+        for v in options.iter(){
+            res.push(format!("  -> <{}> {} {}", v.index+1,v.value.name,v.value.uri));
+        }
+        res.join("\n")
     }).prompt();
-    println!("\n");
+    println!();
     let selected_packages = match selected_packages {
         Ok(choices) => {
             choices
         },
-
         Err(InquireError::OperationCanceled) => {
             println!(" 操作已取消.");
-            std::process::exit(0); // 正常退出
+            std::process::exit(0);
         }
         Err(InquireError::OperationInterrupted) => {
-            println!("\n 操作被中断.");
+            println!("操作被中断.");
             std::process::exit(130);
         }
 
@@ -91,17 +89,17 @@ async fn main(){
         return;
     }
     for pkg in selected_packages {
-        println!("==>> {} {}\n", pkg.name, pkg.uri);
+        println!("==> {} {} download...", pkg.name, pkg.uri);
         let status = std::process::Command::new("go")
             .arg("get")
             .arg(&pkg.uri)
             .status()
-            .expect("Error");
+            .expect("Error\n");
 
         if status.success() {
-            println!("   {} Success...", pkg.name);
+            println!(" -> {} Success...", pkg.name);
         }
-
+        println!();
     }
 }
 async fn get_go_pkg_list(limit:u64,search:&str)->Result<Vec<GoPkg>, reqwest::Error>{
