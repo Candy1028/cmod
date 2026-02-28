@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::{Formatter};
@@ -5,6 +6,7 @@ use inquire::{InquireError, MultiSelect};
 use inquire::list_option::ListOption;
 use pico_args::Arguments;
 use scraper::{ElementRef, Html, Selector};
+use serde::{Deserialize};
 #[derive(Debug, Clone)]
 struct GoPkg{
     name: String,
@@ -13,6 +15,17 @@ struct GoPkg{
     version: Option<String>,
     imported: Option<i64>,
     published_on: Option<String>,
+    is_installed: bool,
+    installed_version: Option<String>,
+}
+#[derive(Debug,Clone,Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct OldPkg{
+    path:String,
+    #[serde(default)]
+    version:Option<String>,
+    #[serde(default)]
+    dir: Option<String>,
 }
 impl fmt::Display for GoPkg {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -27,6 +40,13 @@ impl fmt::Display for GoPkg {
         if let Some(imp) = self.imported {
             write!(f, "  (+{})", imp)?;
         }
+        if self.is_installed {
+            if let Some(version) = &self.version {
+                write!(f, "   (已安装  {}),", version)?;
+            }else{
+                write!(f, "   (已安装)")?;
+            }
+        }
         if let Some(desc) = &self.description {
             write!(f, "\n      {}", desc)?;
         }
@@ -40,7 +60,15 @@ async fn main(){
 
     let option_limit: Option<u64> = args.opt_value_from_str("-l").unwrap_or(Some(25));
 
-    let target: String = args.free_from_str().expect("error: 无效参数");
+    let res: Result<String,pico_args::Error> = args.free_from_str();
+    let target:String = match res {
+        Ok(r) =>r,
+        Err(_)=>{
+            println!("参数错误");
+            std::process::exit(1);
+        }
+    };
+
     let remaining: Vec<OsString> = args.finish();
     if !remaining.is_empty() {
         eprintln!("warning: 存在未识别的额外参数: {:?}", remaining);
@@ -60,9 +88,22 @@ async fn main(){
         println!("error: go.mod file not found");
         return;
     }
-    let list=get_go_pkg_list(limit,&target).await.expect("error: 包获取失败");
+    let mut list=get_go_pkg_list(limit,&target).await.expect("error: 包获取失败");
     if list.is_empty() {
         return;
+    }
+    let old_pkg=get_installed_pkg();
+    let mut m:HashMap<String,Option<String>> = HashMap::new();
+    for r in old_pkg{
+        if let Some(_)=r.dir{
+            m.insert(r.path,r.version);
+        }
+    }
+    for i in list.iter_mut(){
+        if let Some(res)=m.get(&i.uri) {
+            i.is_installed = true;
+            i.installed_version=res.clone();
+        }
     }
     let selected_packages = MultiSelect::new(
         "==> 可安装的包 :\n",
@@ -87,7 +128,6 @@ async fn main(){
             println!("操作被中断.");
             std::process::exit(130);
         }
-
         Err(err) => {
             eprintln!("交互界面发生错误: {}", err);
             std::process::exit(1);
@@ -104,12 +144,35 @@ async fn main(){
             .arg(&pkg.uri)
             .status()
             .expect("Error\n");
-
         if status.success() {
-            println!(" -> {} Success...", pkg.name);
+            println!(" -> {} success...", pkg.name);
         }
         println!();
     }
+}
+fn get_installed_pkg() ->Vec<OldPkg> {
+    let out = std::process::Command::new("go")
+        .arg("list")
+        .arg("-m")
+        .arg("-json")
+        .arg("all")
+        .output()
+        .expect("Error\n");
+    let go_mod = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let old_pkg: Vec<OldPkg> = serde_json::Deserializer::from_str(&go_mod)
+        .into_iter::<OldPkg>()
+        .filter_map(|res| {
+            match res {
+                Ok(pkg) => Some(pkg),
+                Err(e) => {
+                    eprintln!("解析包信息警告: {}", e);
+                    None
+                }
+            }
+        })
+        .collect();
+
+    old_pkg
 }
 async fn get_go_pkg_list(limit:u64,search:&str)->Result<Vec<GoPkg>, reqwest::Error>{
     let url = format!("https://pkg.go.dev/search?m=package&limit={}&q={}",limit,search);
@@ -159,7 +222,7 @@ async fn get_go_pkg_list(limit:u64,search:&str)->Result<Vec<GoPkg>, reqwest::Err
             .map(|el| el.text().collect::<String>().trim().to_string());
 
 
-        list.push(GoPkg{name,uri,description,version,imported,published_on});
+        list.push(GoPkg{name,uri,description,version,imported,published_on,is_installed:false,installed_version:None });
     }
     Ok(list)
 }
