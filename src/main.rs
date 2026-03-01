@@ -24,8 +24,7 @@ struct OldPkg{
     path:String,
     #[serde(default)]
     version:Option<String>,
-    #[serde(default)]
-    dir: Option<String>,
+
 }
 #[derive(Parser, Debug)]
 #[command(name = "cmod", version = "1.0", about = "交互式 Go 包检索与安装工具")]
@@ -65,7 +64,6 @@ impl fmt::Display for GoPkg {
 
  fn main(){
     let cli = Cli::parse();
-
     let target = cli.target;
     let limit = cli.limit;
 
@@ -92,9 +90,7 @@ impl fmt::Display for GoPkg {
     let old_pkg=get_installed_pkg();
     let mut m:HashMap<String,Option<String>> = HashMap::new();
     for r in old_pkg{
-        if let Some(_)=r.dir{
-            m.insert(r.path,r.version);
-        }
+        m.insert(r.path,r.version);
     }
     for i in list.iter_mut(){
         if let Some(res)=m.get(&i.uri) {
@@ -154,9 +150,10 @@ impl fmt::Display for GoPkg {
 fn get_installed_pkg() ->Vec<OldPkg> {
     let out = std::process::Command::new("go")
         .arg("list")
-        .arg("-m")
-        .arg("-json")
-        .arg("all")
+        .arg("-deps")
+        .arg("-f")
+        .arg(r#"{{if not .Standard}}{"Path":"{{.ImportPath}}","Version":"{{with .Module}}{{.Version}}{{end}}"}{{"\n"}}{{end}}"#)
+        .arg("./...")
         .output()
         .unwrap_or_else(|e|{
             eprintln!(" -> error: {}", e);
