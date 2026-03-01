@@ -1,10 +1,10 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::fmt;
 use std::fmt::{Formatter};
+use clap::Parser;
 use inquire::{InquireError, MultiSelect};
 use inquire::list_option::ListOption;
-use pico_args::Arguments;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize};
 #[derive(Debug, Clone)]
@@ -26,6 +26,15 @@ struct OldPkg{
     version:Option<String>,
     #[serde(default)]
     dir: Option<String>,
+}
+#[derive(Parser, Debug)]
+#[command(name = "cmod", version = "1.0", about = "交互式 Go 包检索与安装工具")]
+struct Cli {
+    #[arg(required = true)]
+    target: String,
+
+    #[arg(short, long, default_value_t = 25)]
+    limit: u64,
 }
 impl fmt::Display for GoPkg {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -56,39 +65,28 @@ impl fmt::Display for GoPkg {
 
 #[tokio::main]
 async fn main(){
-    let mut args = Arguments::from_env();
+    let cli = Cli::parse();
 
-    let option_limit: Option<u64> = args.opt_value_from_str("-l").unwrap_or(Some(25));
+    let target = cli.target;
+    let limit = cli.limit;
 
-    let res: Result<String,pico_args::Error> = args.free_from_str();
-    let target:String = match res {
-        Ok(r) =>r,
-        Err(_)=>{
-            println!("参数错误");
-            std::process::exit(1);
-        }
-    };
-
-    let remaining: Vec<OsString> = args.finish();
-    if !remaining.is_empty() {
-        eprintln!("warning: 存在未识别的额外参数: {:?}", remaining);
-    }
-    let mut limit =25;
-
-    if let Some(res) = option_limit {
-         limit=res;
-    }
     let output = std::process::Command::new("go")
         .arg("env")
         .arg("GOMOD")
         .output()
-        .expect("执行 go env 失败\n");
+        .unwrap_or_else(|e|{
+            eprintln!(" -> error: {}", e);
+            std::process::exit(1);
+        });
     let go_mod_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if go_mod_path == "/dev/null" || go_mod_path == "NUL" || go_mod_path.is_empty() {
-        println!("error: go.mod file not found");
+        println!(" -> error: go.mod file not found");
         return;
     }
-    let mut list=get_go_pkg_list(limit,&target).await.expect("error: 包获取失败");
+    let mut list=get_go_pkg_list(limit,&target).await.unwrap_or_else(|e| {
+        eprintln!(" -> error: {}", e);
+        std::process::exit(1);
+    });
     if list.is_empty() {
         return;
     }
@@ -105,6 +103,7 @@ async fn main(){
             i.installed_version=res.clone();
         }
     }
+    list.sort_by_key(|v|Reverse(v.imported));
     let selected_packages = MultiSelect::new(
         "==> 可安装的包 :\n",
         list,
@@ -121,20 +120,20 @@ async fn main(){
             choices
         },
         Err(InquireError::OperationCanceled) => {
-            println!("操作已取消.");
+            println!(" -> 操作已取消.");
             std::process::exit(0);
         }
         Err(InquireError::OperationInterrupted) => {
-            println!("操作被中断.");
+            println!(" -> 操作被中断.");
             std::process::exit(130);
         }
         Err(err) => {
-            eprintln!("交互界面发生错误: {}", err);
+            eprintln!(" -> 交互界面发生错误: {}", err);
             std::process::exit(1);
         }
     };
     if selected_packages.is_empty() {
-        println!("未选择任何包, 操作已取消.");
+        println!(" -> 未选择任何包, 操作已取消.");
         return;
     }
     for pkg in selected_packages {
@@ -143,9 +142,12 @@ async fn main(){
             .arg("get")
             .arg(&pkg.uri)
             .status()
-            .expect("Error\n");
+            .unwrap_or_else(|e|{
+                eprintln!(" -> error: {}", e);
+                std::process::exit(1);
+            });
         if status.success() {
-            println!(" -> {} success...", pkg.name);
+            println!(" -> {} install success...", pkg.name);
         }
         println!();
     }
@@ -157,7 +159,10 @@ fn get_installed_pkg() ->Vec<OldPkg> {
         .arg("-json")
         .arg("all")
         .output()
-        .expect("Error\n");
+        .unwrap_or_else(|e|{
+            eprintln!(" -> error: {}", e);
+            std::process::exit(1);
+        });
     let go_mod = String::from_utf8_lossy(&out.stdout).trim().to_string();
     let old_pkg: Vec<OldPkg> = serde_json::Deserializer::from_str(&go_mod)
         .into_iter::<OldPkg>()
@@ -165,7 +170,7 @@ fn get_installed_pkg() ->Vec<OldPkg> {
             match res {
                 Ok(pkg) => Some(pkg),
                 Err(e) => {
-                    eprintln!("解析包信息警告: {}", e);
+                    eprintln!(" -> warning: 解析包信息警告: {}", e);
                     None
                 }
             }
