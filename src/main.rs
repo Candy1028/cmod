@@ -63,8 +63,7 @@ impl fmt::Display for GoPkg {
     }
 }
 
-#[tokio::main]
-async fn main(){
+ fn main(){
     let cli = Cli::parse();
 
     let target = cli.target;
@@ -83,7 +82,7 @@ async fn main(){
         println!(" -> error: go.mod file not found");
         return;
     }
-    let mut list=get_go_pkg_list(limit,&target).await.unwrap_or_else(|e| {
+    let mut list=get_go_pkg_list(limit,&target).unwrap_or_else(|e| {
         eprintln!(" -> error: {}", e);
         std::process::exit(1);
     });
@@ -179,10 +178,12 @@ fn get_installed_pkg() ->Vec<OldPkg> {
 
     old_pkg
 }
-async fn get_go_pkg_list(limit:u64,search:&str)->Result<Vec<GoPkg>, reqwest::Error>{
+ fn get_go_pkg_list(limit:u64,search:&str)->Result<Vec<GoPkg>, reqwest::Error>{
     let url = format!("https://pkg.go.dev/search?m=package&limit={}&q={}",limit,search);
+     let client = reqwest::blocking::Client::builder()
+         .build()?;
 
-    let html_content = reqwest::get(url).await?.text().await?;
+     let html_content = client.get(&url).send()?.text()?;
     let mut list:Vec<GoPkg>=Vec::new();
     let document = Html::parse_document(&html_content);
     let snippet_selector = Selector::parse(".SearchSnippet").unwrap();
