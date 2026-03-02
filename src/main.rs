@@ -31,7 +31,6 @@ struct OldPkg{
 struct Cli {
     #[arg(required = true)]
     target: String,
-
     #[arg(short, long, default_value_t = 25)]
     limit: u64,
 }
