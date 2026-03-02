@@ -12,6 +12,8 @@
 - 运行
     ```shell
     cmod [OPTIONS] <TARGET>
+    # cmod sql
+    # cmod -l 30 sql
     ```
 - Options:
     ```shell

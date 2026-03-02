@@ -49,7 +49,7 @@ impl fmt::Display for GoPkg {
             write!(f, "  (+{})", imp)?;
         }
         if self.is_installed {
-            if let Some(version) = &self.version {
+            if let Some(version) = &self.installed_version && !"".eq(version) {
                 write!(f, "   (已安装  {}),", version)?;
             }else{
                 write!(f, "   (已安装)")?;
@@ -152,7 +152,7 @@ fn get_installed_pkg() ->Vec<OldPkg> {
         .arg("list")
         .arg("-deps")
         .arg("-f")
-        .arg(r#"{{if not .Standard}}{"Path":"{{.ImportPath}}","Version":"{{with .Module}}{{.Version}}{{end}}"}{{"\n"}}{{end}}"#)
+        .arg(r#"{"Path":"{{.ImportPath}}","Version":"{{with .Module}}{{.Version}}{{end}}"}{{"\n"}}"#)
         .arg("./...")
         .output()
         .unwrap_or_else(|e|{
