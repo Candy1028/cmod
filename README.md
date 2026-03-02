@@ -1,20 +1,23 @@
 # cmod
 
+
 通过 rust 实现的go package辅助工具
 
 从 https://pkg.go.dev/ 搜索并获取 package 信息
+
+![](image/gust.png)
 
 ## 命令
 
 - 运行
     ```shell
-        cmod <packageName>
+    cmod [OPTIONS] <TARGET>
     ```
-- -l -limit
+- Options:
     ```shell
-      cmod -l <limit> <packageName>
-      # 或
-      cmod -limit <limit> <packageName>
+  -l, --limit <LIMIT>  [default: 25]
+  -h, --help           Print help
+  -V, --version        Print version
     ```
 
 ## 安装
