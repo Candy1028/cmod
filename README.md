@@ -18,6 +18,7 @@
 - Options:
     ```shell
   -l, --limit <LIMIT>  [default: 25]
+  -o, --old            Print Installed Packages
   -h, --help           Print help
   -V, --version        Print version
     ```

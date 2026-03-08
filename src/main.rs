@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Formatter};
 use clap::Parser;
-use inquire::{InquireError, MultiSelect};
+use inquire::{InquireError, MultiSelect, Select};
 use inquire::list_option::ListOption;
 use scraper::{ElementRef, Html, Selector};
 use serde::{Deserialize};
@@ -29,10 +29,23 @@ struct OldPkg{
 #[derive(Parser, Debug)]
 #[command(name = "cmod", version = "1.0", about = "交互式 Go 包检索与安装工具")]
 struct Cli {
-    #[arg(required = true)]
-    target: String,
-    #[arg(short, long, default_value_t = 25)]
+    #[arg(required_unless_present = "old", conflicts_with = "old")]
+    target: Option<String>,
+    #[arg(short, long, default_value_t = 25, conflicts_with = "old")]
     limit: u64,
+    #[arg(short,long, help = "Print Installed Packages")]
+    old: bool,
+}
+impl fmt::Display for OldPkg{
+    fn fmt(&self, f: &mut Formatter<'_>) ->fmt::Result {
+        write!(f,"{}   ",self.path)?;
+        if let Some(v)=&self.version{
+            if v!=""{
+                write!(f,"version: {}",v)?;
+            }
+        }
+        Ok(())
+    }
 }
 impl fmt::Display for GoPkg {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -65,7 +78,31 @@ impl fmt::Display for GoPkg {
     let cli = Cli::parse();
     let target = cli.target;
     let limit = cli.limit;
-
+    let old = cli.old;
+    if old{
+        installed_pkg_list();
+    }else{
+        if let Some(target) = target{
+            search_package(limit, &target);
+        }else{
+            eprintln!("==> error: 无效的参数");
+            return;
+        }
+    }
+}
+fn installed_pkg_list(){
+    let res=get_installed_pkg();
+    if res.is_empty(){
+        println!("==> 未安装任何包");
+        return;
+    }
+    Select::new("installed: \n", res)
+        .prompt().unwrap_or_else(|e| {
+        eprintln!("==> error: {}",e);
+        std::process::exit(1);
+    });
+}
+fn search_package(limit:u64, target:&str){
     let output = std::process::Command::new("go")
         .arg("env")
         .arg("GOMOD")
@@ -79,7 +116,7 @@ impl fmt::Display for GoPkg {
         println!(" -> error: go.mod file not found");
         return;
     }
-    let mut list=get_go_pkg_list(limit,&target).unwrap_or_else(|e| {
+    let mut list=get_go_pkg_list(limit,target).unwrap_or_else(|e| {
         eprintln!(" -> error: {}", e);
         std::process::exit(1);
     });
@@ -114,20 +151,20 @@ impl fmt::Display for GoPkg {
             choices
         },
         Err(InquireError::OperationCanceled) => {
-            println!(" -> 操作已取消.");
+            println!("==> 操作已取消 .");
             std::process::exit(0);
         }
         Err(InquireError::OperationInterrupted) => {
-            println!(" -> 操作被中断.");
+            println!("==> 操作被中断 .");
             std::process::exit(130);
         }
         Err(err) => {
-            eprintln!(" -> 交互界面发生错误: {}", err);
+            eprintln!("==> 交互界面发生错误 : {}", err);
             std::process::exit(1);
         }
     };
     if selected_packages.is_empty() {
-        println!(" -> 未选择任何包, 操作已取消.");
+        println!("==> 未选择任何包, 操作已取消.");
         return;
     }
     for pkg in selected_packages {
@@ -145,6 +182,7 @@ impl fmt::Display for GoPkg {
         }
         println!();
     }
+    println!("==> final.");
 }
 fn get_installed_pkg() ->Vec<OldPkg> {
     let out = std::process::Command::new("go")
