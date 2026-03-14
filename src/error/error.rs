@@ -1,6 +1,5 @@
 use inquire::InquireError;
 use thiserror::Error;
-
 pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug,Error)]
 // 自定义Error

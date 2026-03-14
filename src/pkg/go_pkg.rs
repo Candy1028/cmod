@@ -1,13 +1,15 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use colored::Colorize;
 use inquire::list_option::ListOption;
 use inquire::{InquireError, MultiSelect};
 use crate::error::error::Error::BizError;
 use crate::error::error::Result;
+use crate::pkg::loading::Loading;
 use crate::types;
 use crate::types::go_pkg::GoPkg;
 
-pub fn search_package(limit:u64, target:&str) ->Result<()>{
+pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
     let output = std::process::Command::new("go")
         .arg("env")
         .arg("GOMOD")
@@ -32,6 +34,7 @@ pub fn search_package(limit:u64, target:&str) ->Result<()>{
         }
     }
     list.sort_by_key(|v|Reverse(v.imported));
+    pb.final_loading();
     let selected_packages = MultiSelect::new(
         "==> 可安装的包 :\n",
         list,
@@ -48,37 +51,33 @@ pub fn search_package(limit:u64, target:&str) ->Result<()>{
             choices
         },
         Err(InquireError::OperationCanceled) => {
-            println!("==> 操作已取消 .");
+            println!("{}","==> 操作已取消 .".yellow());
             std::process::exit(0);
         }
         Err(InquireError::OperationInterrupted) => {
-            println!("==> 操作被中断 .");
+            println!("{}","==> 操作被中断 .".yellow());
             std::process::exit(130);
         }
         Err(err) => {
-            eprintln!("==> 交互界面发生错误 : {}", err);
+            eprintln!("{}",format!("==> 交互界面发生错误 : {}", err).green());
             std::process::exit(1);
         }
     };
     if selected_packages.is_empty() {
-        println!("==> 未选择任何包, 操作已取消.");
+        println!("{}","==> 未选择任何包, 操作已取消.".green());
         return Ok(());
     }
     for pkg in selected_packages {
-        println!("==> {} {} download...", pkg.name, pkg.uri);
+        println!("{}",format!("==> {} {} download...", pkg.name, pkg.uri).green());
         let status = std::process::Command::new("go")
             .arg("get")
             .arg(&pkg.uri)
-            .status()
-            .unwrap_or_else(|e|{
-                eprintln!(" -> error: {}", e);
-                std::process::exit(1);
-            });
+            .status()?;
         if status.success() {
-            println!(" -> {} install success...", pkg.name);
+            println!("{}",format!(" -> {} install success!", pkg.name).green());
         }
         println!();
     }
-    println!("==> final.");
+    println!("{}","==> Done.".green());
     Ok(())
 }
