@@ -40,8 +40,10 @@ pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
         list,
     ).with_formatter(&|options: &[ListOption<&GoPkg>]| {
         let mut res:Vec<String> =Vec::new();
+        let mut index:usize = 1;
         for v in options.iter(){
-            res.push(format!("  -> <{}> {} {}", v.index+1,v.value.name,v.value.uri));
+            res.push(format!("  -> <{}> {} {}", index,v.value.name,v.value.uri));
+            index+=1;
         }
         res.join("\n")
     }).prompt();

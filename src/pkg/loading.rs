@@ -23,5 +23,4 @@ impl Loading{
             self.pb.finish_and_clear();
         }
     }
-
 }
