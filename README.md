@@ -17,7 +17,7 @@
 目前支持通过 `cargo` 进行本地编译安装：
 
 ```bash
-git clone https://github.com/candy/cmod.git
+git clone https://github.com/Candy1028/cmod.git
 cd cmod
 cargo install --path .
 ```
