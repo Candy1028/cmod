@@ -25,5 +25,9 @@
 
 ## 安装
 
+```shell
+    cargo install <PATH>
+```
+
 - linux
   将可执行文件放到 /usr/local/bin 下
