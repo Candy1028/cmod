@@ -1,3 +1,4 @@
 pub mod go_pkg;
 pub mod installed_pkg;
 pub mod loading;
+pub mod tui;

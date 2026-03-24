@@ -1,13 +1,11 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use colored::Colorize;
-use inquire::list_option::ListOption;
-use inquire::{InquireError, MultiSelect};
 use crate::error::error::Error::BizError;
 use crate::error::error::Result;
 use crate::pkg::loading::Loading;
+use crate::pkg::tui::{new_multiple_choice};
 use crate::types;
-use crate::types::go_pkg::GoPkg;
 
 pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
     let output = std::process::Command::new("go")
@@ -16,7 +14,7 @@ pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
         .output()?;
     let go_mod_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if go_mod_path == "/dev/null" || go_mod_path == "NUL" || go_mod_path.is_empty() {
-        return Err(BizError("go.mod file not found"));
+        return Err(BizError("go.mod file not found".to_string()));
     }
     let mut list=types::go_pkg::GoPkg::list(limit,target)?;
     if list.is_empty() {
@@ -35,31 +33,14 @@ pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
     }
     list.sort_by_key(|v|Reverse(v.imported));
     pb.final_loading();
-    let selected_packages = MultiSelect::new(
-        "==> 可安装的包 :\n",
-        list,
-    ).with_formatter(&|options: &[ListOption<&GoPkg>]| {
-        let mut res:Vec<String> =Vec::new();
-        let mut index:usize = 1;
-        for v in options.iter(){
-            res.push(format!("  -> <{}> {} {}", index,v.value.name,v.value.uri));
-            index+=1;
-        }
-        res.join("\n")
-    }).prompt();
+    let selected_packages=new_multiple_choice(&list);
+
     println!();
     let selected_packages = match selected_packages {
         Ok(choices) => {
             choices
         },
-        Err(InquireError::OperationCanceled) => {
-            println!("{}","==> 操作已取消 .".yellow());
-            std::process::exit(0);
-        }
-        Err(InquireError::OperationInterrupted) => {
-            println!("{}","==> 操作被中断 .".yellow());
-            std::process::exit(130);
-        }
+
         Err(err) => {
             eprintln!("{}",format!("==> 交互界面发生错误 : {}", err).green());
             std::process::exit(1);
@@ -68,6 +49,11 @@ pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
     if selected_packages.is_empty() {
         println!("{}","==> 未选择任何包, 操作已取消.".green());
         return Ok(());
+    }
+    let mut  index=1;
+    for v in selected_packages.iter(){
+        println!("==> <{}> {} {}", index,v.name,v.uri);
+        index+=1;
     }
     for pkg in selected_packages {
         println!("{}",format!("==> {} {} download...", pkg.name, pkg.uri).green());

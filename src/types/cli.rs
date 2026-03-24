@@ -1,7 +1,7 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "cmod", version = "1.0", about = "交互式 Go 包检索与安装工具")]
+#[command(name = "cmod", version = "1.1", about = "交互式 Go 包检索与安装工具")]
 pub struct Cli {
     #[arg(required_unless_present = "old", conflicts_with = "old")]
     pub target: Option<String>,

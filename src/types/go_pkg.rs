@@ -3,6 +3,8 @@ use std::fmt::Formatter;
 use scraper::{ElementRef, Html, Selector};
 use crate::error::error::Error::BizError;
 use crate::error::error::Result;
+use crate::types::tui::CheckedInfo;
+
 #[derive(Debug, Clone)]
 // 从远程获取go pkg
 pub struct GoPkg{
@@ -15,7 +17,11 @@ pub struct GoPkg{
     pub is_installed: bool, //是否安装
     pub installed_version: Option<String>, // 已安装版本
 }
-
+impl CheckedInfo for GoPkg{
+    fn info(&self) -> &str{
+        self.uri.as_str()
+    }
+}
 impl fmt::Display for GoPkg {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name)?;
@@ -52,19 +58,19 @@ impl GoPkg {
         let mut list:Vec<GoPkg>=Vec::new();
         let document = Html::parse_document(&html_content);
         let snippet_selector = Selector::parse(".SearchSnippet")
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
         let name_selector = Selector::parse(r#"div.SearchSnippet-headerContainer > h2 > a[data-test-id="snippet-title"]"#)
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
         let uri_selector = Selector::parse("span.SearchSnippet-header-path")
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
         let description_selector = Selector::parse("p.SearchSnippet-synopsis")
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
         let imported_selector = Selector::parse("div.SearchSnippet-infoLabel > a[aria-label=\"Go to Imported By\"] > strong")
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
         let published_on_selector=Selector::parse(r#"div.SearchSnippet-infoLabel > .go-textSubtle > span[data-test-id="snippet-published"] > strong"#)
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
         let version_selector=Selector::parse(r#"strong"#)
-            .map_err(|_| BizError("Selector 发生错误"))?;
+            .map_err(|_| BizError("Selector 发生错误".to_string()))?;
 
         for snippet in document.select(&snippet_selector) {
 

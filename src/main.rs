@@ -29,7 +29,7 @@ fn choose(cli:&cli::Cli,pb :&mut Loading)->Result<()>{
         if let Some(target) = target{
             search_package(limit,&target,pb)
         }else{
-            Err(BizError("==> error: 无效的参数"))
+            Err(BizError("==> error: 无效的参数".to_string()))
         }
     }
 }
