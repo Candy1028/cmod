@@ -1,6 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use colored::Colorize;
+use crossterm::style::Stylize;
 use crate::error::error::Error::BizError;
 use crate::error::error::Result;
 use crate::pkg::loading::Loading;
@@ -47,14 +48,16 @@ pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
         }
     };
     if selected_packages.is_empty() {
-        println!("{}","==> 未选择任何包, 操作已取消.".green());
+        println!("{}",Colorize::green("==> 未选择任何包, 操作已取消."));
         return Ok(());
     }
     let mut  index=1;
     for v in selected_packages.iter(){
-        println!("==> <{}> {} {}", index,v.name,v.uri);
+        println!("{}", format!("==> <{}> {} {}", index, v.name, v.uri).green());
         index+=1;
     }
+    println!("\n");
+
     for pkg in selected_packages {
         println!("{}",format!("==> {} {} download...", pkg.name, pkg.uri).green());
         let status = std::process::Command::new("go")
@@ -66,6 +69,6 @@ pub fn search_package(limit:u64, target:&str,pb :&mut Loading) ->Result<()>{
         }
         println!();
     }
-    println!("{}","==> Done.".green());
+    println!("{}",Colorize::green("==> Done."));
     Ok(())
 }

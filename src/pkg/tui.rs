@@ -19,7 +19,6 @@ use crate::error::error::Error::BizError;
 use crate::types::tui::*;
 
 
-
 pub fn new_multiple_choice<T>(list:&Vec<T>) -> Result<Vec<T>>
 where
     T:Display+Clone+CheckedInfo
@@ -100,12 +99,16 @@ where
         .collect();
 
     let list = List::new(items)
-        .block(Block::default().title("多选菜单").borders(Borders::ALL))
+        .block(Block::default().title("多选菜单")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Blue)))
+        .style(Style::default().fg(Color::White))
         .highlight_style(
             Style::default()
                 .bg(Color::DarkGray)
                 .add_modifier(Modifier::BOLD),
-        );
+        )
+        .highlight_symbol(">> ");
 
     f.render_stateful_widget(list, chunks[0], list_state);
 
@@ -123,9 +126,9 @@ where
         app.items[app.selected_index].info(),
         checked_names
     );
-
     let detail = Paragraph::new(detail_text)
-        .block(Block::default().title("详情").borders(Borders::ALL));
-
+        .style(Style::default().fg(Color::White))
+        .block(Block::default()
+            .title("详情").borders(Borders::ALL).border_style(Style::default().fg(Color::Blue)));
     f.render_widget(detail, chunks[1]);
 }
